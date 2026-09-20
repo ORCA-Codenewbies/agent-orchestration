@@ -322,11 +322,17 @@ class RecommendationAgent(BaseAgent):
         elif safety_clearance == "UNKNOWN":
             action_code = "VERIFICATION_REQUIRED"
             action_title = "UNABLE TO VERIFY SAFETY CONDITIONS"
-            recommendation_text = (
-                "Critical weather/ocean data could not be verified. Do not rely on ORCA for a go/no-go decision; "
-                "check official marine forecasts and safety advisories before departing."
-            )
-            why_dict["primary_reason"] = "Safety state cannot be established due to missing or failed meteorological/oceanographic data."
+            if pfz_qualified:
+                recommendation_text = (
+                    "An INCOIS PFZ advisory is available, but current safety status cannot be fully confirmed because hazard data is unavailable. "
+                    "Do not rely on ORCA for a go/no-go decision; check official marine forecasts and safety advisories before departing."
+                )
+            else:
+                recommendation_text = (
+                    "Critical hazard data could not be verified. Do not rely on ORCA for a go/no-go decision; "
+                    "check official marine forecasts and safety advisories before departing."
+                )
+            why_dict["primary_reason"] = "Safety state cannot be established due to missing or failed hazard data."
             confidence = 0.50
             ranked_candidates = [] # HARD SAFETY GATE: Do not recommend spots if safety cannot be verified!
         elif safety_clearance == "CAUTION" or bsi_advisory == "CAUTION" or ml_weather_risk == "CAUTION":

@@ -109,6 +109,12 @@ class SafetyRuleAgent(BaseAgent):
             safety_status = "UNSAFE"
             rule_violations.append("MARINE_SAFETY_WARNING")
             override_risk_level = "DANGER"
+        elif vessel_advisory == "UNKNOWN":
+            safety_clearance = "UNKNOWN"
+            safety_status = "UNVERIFIABLE"
+            rule_violations.append("MARINE_SAFETY_UNKNOWN")
+            override_risk_level = "UNKNOWN"
+            warnings.append("Critical hazard data is unavailable. Safety cannot be verified.")
         elif vessel_advisory == "CAUTION":
             safety_clearance = "CAUTION"
             safety_status = "MODERATE_RISK"
@@ -152,13 +158,12 @@ class SafetyRuleAgent(BaseAgent):
             safety_status = "SAFE"
             override_risk_level = "NORMAL"
 
-        # Handle CYCLONE_DATA_UNAVAILABLE
+        # Handle CYCLONE_DATA_UNAVAILABLE explicitly to prevent defaulting to CLEARED
         cyclone_data = marine_safety_data.get("cyclone_data_status", "UNKNOWN")
-        if cyclone_data == "CYCLONE_DATA_UNAVAILABLE":
-            warnings.append("CYCLONE_MONITORING_UNAVAILABLE: Live cyclone data could not be retrieved. Exercise caution.")
-            if safety_clearance == "CLEARED":
-                safety_clearance = "CAUTION"
-                safety_status = "UNVERIFIED"
+        if cyclone_data == "CYCLONE_DATA_UNAVAILABLE" and safety_clearance != "RESTRICTED":
+            warnings.append("CYCLONE_MONITORING_UNAVAILABLE: Live cyclone data could not be retrieved.")
+            safety_clearance = "UNKNOWN"
+            safety_status = "UNVERIFIABLE"
 
         payload = {
             "latitude": lat,

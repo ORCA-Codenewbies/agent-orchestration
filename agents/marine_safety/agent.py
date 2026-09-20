@@ -73,9 +73,10 @@ class MarineSafetyAgent(BaseAgent):
         boat = BoatProfile(max_hs_m=2.0) # Assume small fishing vessel
         bsi_report = evaluate_conditions(sea_state, boat)
 
-        # Synthesize vessel safety advisory
         vessel_advisory = bsi_report.advisory
-        if catastrophic_active or any_hazard or (fisherman_warning_sev and str(fisherman_warning_sev).upper() not in ("UNKNOWN", "NORMAL", "GREEN", "NONE", "NO WARNING")):
+        if catastrophic_active is None or cyclone_status == "CYCLONE_DATA_UNAVAILABLE":
+            vessel_advisory = "UNKNOWN"
+        elif catastrophic_active is True or any_hazard or (fisherman_warning_sev and str(fisherman_warning_sev).upper() not in ("UNKNOWN", "NORMAL", "GREEN", "NONE", "NO WARNING")):
             vessel_advisory = "DANGER"
 
         payload = {
@@ -90,7 +91,7 @@ class MarineSafetyAgent(BaseAgent):
         warnings = active_imd_warnings + bsi_report.hazards
 
         status = "SUCCESS"
-        if cyclone_status == "CYCLONE_DATA_UNAVAILABLE":
+        if cyclone_status == "CYCLONE_DATA_UNAVAILABLE" or catastrophic_status == "WARNING_SOURCE_UNAVAILABLE":
             status = "DEGRADED"
 
         return AgentResult(

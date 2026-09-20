@@ -540,7 +540,7 @@ class ConversationModel:
                       action=Action(action_val) if action_val in [a.value for a in Action] else Action.ORCA_QUERY,
                       action_type=ActionType.LOCATE,
                       locations=[LocationItem(text=loc_text, role=LocationRole.REFERENCE)],
-                      activity=activity_match.group(1) if activity_match else "none",
+                      activity=activity_match.group(2) if activity_match else "none",
                       language=Language.en
                   )
 
