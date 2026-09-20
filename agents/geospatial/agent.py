@@ -121,7 +121,16 @@ class GeospatialAgent(BaseAgent):
         # Generate spatial candidate grid points for PFZ location search
         cand_lat = target_loc.latitude if target_loc else lat
         cand_lon = target_loc.longitude if target_loc else lon
-        candidates = generate_candidate_grid_points(cand_lat, cand_lon)
+        print(f"DEBUG GEOSPATIAL: cand_lat={cand_lat}, cand_lon={cand_lon}, target_loc={target_loc.name if target_loc else 'None'}")
+        radii = None
+        if plan.spatial_constraint and plan.spatial_constraint.distance_km is not None:
+            if not plan.spatial_constraint.direction:
+                dist = plan.spatial_constraint.distance_km
+                radii = [max(1.0, dist - 5.0), dist, dist + 5.0]
+            else:
+                radii = [1.0, 5.0, 10.0]
+
+        candidates = generate_candidate_grid_points(cand_lat, cand_lon, radii_km=radii)
 
         # Distance to Coast calculation for geography / nearest_coast operations
         from location.location_metadata import LOCATION_METADATA

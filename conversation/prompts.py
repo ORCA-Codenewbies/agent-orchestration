@@ -25,6 +25,7 @@ RULES:
 11. PRODUCTIVITY vs PFZ: If explicitly asking for PFZ, use "nearest_pfz". If asking to FIND new areas based on chlorophyll/SST/suitability, use "productivity_analysis". Do NOT use productivity_analysis when explaining WHY fish catch is low in a current area.
 12. EXPLANATION: If the user asks WHY fishing/catch is poor or low, MUST set intent "i" to "marine_conditions", action_type "t" to "EXPLAIN", and explanation_target "et" to "fishing_availability".
 13. ASSESS: Queries like "How is the sea today?" are marine conditions checks. Set "i" to "marine_conditions", "t" to "ASSESS", "a" to "ORCA_QUERY" if a location is known, else "CLARIFY".
+14. FISHING AREA vs NEAREST PFZ: If the user asks to GO TO, FIND, or be TAKEN TO a fishing area/spot/zone at a specific distance (e.g. "50 km from Kochi", "about 100 km from Digha"), set "i" to "fishing_zone_analysis" and "t" to "LOCATE". The named location is the base/reference for the search and should be "TGT". Use "nearest_pfz" ONLY when the user explicitly mentions "PFZ" or "potential fishing zone" by name.
 """
 
 

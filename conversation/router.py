@@ -145,22 +145,28 @@ def parse_relative_spatial_constraint(raw_query: str, ref_loc: GeoLocation | Non
         if dir_match:
             raw_dir = dir_match.group(1)
 
-    if dist_km and raw_dir and ref_loc:
-        brg_deg, dir_label = normalize_direction(raw_dir)
-        if brg_deg is not None and dir_label is not None:
-            spatial_c = SpatialConstraint(
-                distance_km=dist_km,
-                direction=dir_label,
-                bearing_deg=brg_deg,
-                radius_km=30.0
-            )
-            tgt_lat, tgt_lon = calculate_destination_point(ref_loc.latitude, ref_loc.longitude, dist_km, brg_deg)
-            target_loc = GeoLocation(
-                latitude=tgt_lat,
-                longitude=tgt_lon,
-                name=f"{ref_loc.name} {int(dist_km)}km {dir_label}"
-            )
-            return spatial_c, target_loc
+    if dist_km and ref_loc:
+        if raw_dir:
+            brg_deg, dir_label = normalize_direction(raw_dir)
+            if brg_deg is not None and dir_label is not None:
+                spatial_c = SpatialConstraint(
+                    distance_km=dist_km,
+                    direction=dir_label,
+                    bearing_deg=brg_deg,
+                    radius_km=30.0
+                )
+                tgt_lat, tgt_lon = calculate_destination_point(ref_loc.latitude, ref_loc.longitude, dist_km, brg_deg)
+                target_loc = GeoLocation(
+                    latitude=tgt_lat,
+                    longitude=tgt_lon,
+                )
+                return spatial_c, target_loc
+
+        spatial_c = SpatialConstraint(
+            distance_km=dist_km,
+            radius_km=30.0
+        )
+        return spatial_c, None
 
     return None, None
 
