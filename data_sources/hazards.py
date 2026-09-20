@@ -82,15 +82,20 @@ def detect_catastrophic_hazards(lat: float, lon: float, intent: str, cyclone_dat
                     "description": f"Cyclone {cyc['name']} (Cat {cyc['category']}) is dangerously close ({cyc['distance_km']}km)."
                 })
                 
+    is_error = eq.get("status") == "ERROR" or (cyclone_data and cyclone_data.get("cyclone_data_status") == "CYCLONE_DATA_UNAVAILABLE")
+    
     if len(hazards) > 0:
         catastrophic_status = "ACTIVE"
-    elif eq.get("status") == "ERROR":
-        catastrophic_status = "UNKNOWN"
+        catastrophic_active = True
+    elif is_error:
+        catastrophic_status = "WARNING_SOURCE_UNAVAILABLE"
+        catastrophic_active = None
     else:
-        catastrophic_status = "NONE"
+        catastrophic_status = "WARNING_ABSENT"
+        catastrophic_active = False
 
     return {
-        "catastrophic_active": len(hazards) > 0,
+        "catastrophic_active": catastrophic_active,
         "catastrophic_status": catastrophic_status,
         "hazards": hazards
     }

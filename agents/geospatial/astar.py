@@ -211,8 +211,22 @@ def plan_safe_route_astar(
     # Estimated time (assuming 15 km/h vessel speed)
     est_time_h = total_dist / 15.0 if total_dist > 0 else 0.0
     
+    route_status = "SUCCESS" if found_goal else "NO_ROUTE_FOUND"
+    
+    global_clearance = env_data.get("safety_clearance", "CLEARED")
+    catastrophic = env_data.get("catastrophic_active", False)
+    
+    if route_status == "SUCCESS":
+        if global_clearance == "RESTRICTED" or catastrophic is True:
+            route_status = "ROUTE_BLOCKED_BY_HAZARD"
+            route = []
+            total_dist = 0.0
+            est_time_h = 0.0
+        elif global_clearance == "UNKNOWN" or catastrophic is None:
+            route_status = "GEOMETRIC_ROUTE_UNVERIFIED_SAFETY"
+
     return {
-        "route_status": "SUCCESS" if found_goal else "NO_ROUTE_FOUND",
+        "route_status": route_status,
         "route_coordinates": [{"latitude": c[0], "longitude": c[1]} for c in route],
         "total_distance_km": round(total_dist, 2),
         "estimated_travel_time_h": round(est_time_h, 2),
