@@ -1,6 +1,6 @@
 # conversation/fast_router.py
 import re
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 
 @dataclass
@@ -8,6 +8,7 @@ class FastRouteResult:
     matched: bool
     intent: Optional[str]
     confidence: float
+    endpoints: Optional[Tuple[str, str]] = None
 
 SIGNAL_WORDS = {
     "hazard_alert": {
@@ -47,6 +48,21 @@ SIGNAL_WORDS = {
     }
 }
 
+def extract_route_endpoints(query_lower: str) -> Tuple[Optional[str], Optional[str]]:
+    # En: from X to Y
+    m = re.search(r'\bfrom\s+(.+?)\s+to\s+(.+?)(?:\s+plan|\s+route|\s+porjonto|\s+tak|\s+jabo|\s+karo|$)', query_lower)
+    if m: return m.group(1).strip(), m.group(2).strip()
+    
+    # Benglish: X theke Y
+    m = re.search(r'\b(.+?)\s+theke\s+(.+?)(?:\s+porjonto|\s+safe|\s+route|\s+plan|\s+koro|$)', query_lower)
+    if m: return m.group(1).strip(), m.group(2).strip()
+    
+    # Hinglish: X se Y
+    m = re.search(r'\b(.+?)\s+se\s+(.+?)(?:\s+tak|\s+safe|\s+route|\s+plan|\s+karo|$)', query_lower)
+    if m: return m.group(1).strip(), m.group(2).strip()
+    
+    return None, None
+
 def detect_specialized_capability(query_text: str, language: str) -> FastRouteResult:
     """
     Detects specialized benchmark intents with high confidence using multilingual heuristics.
@@ -60,6 +76,9 @@ def detect_specialized_capability(query_text: str, language: str) -> FastRouteRe
         "rasta", "poth", "রাস্তা", "পথ", "নিরাপদ রুট" # Bengali/Benglish
     ]
     if any(kw in query_lower for kw in route_kws):
+        origin, dest = extract_route_endpoints(query_lower)
+        if origin and dest:
+            return FastRouteResult(matched=True, intent="safe_route", confidence=0.95, endpoints=(origin, dest))
         return FastRouteResult(matched=False, intent=None, confidence=0.0)
     
     # Normalize language mapping slightly

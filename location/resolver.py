@@ -3,6 +3,7 @@
 import re
 import math
 import difflib
+import requests
 from typing import Optional, List
 from schemas.contracts import GeoLocation
 from .gazetteer import GAZETTEER
@@ -99,6 +100,34 @@ class LocationResolution(ResolvedLocation):
         self.inland_name = inland_name
         self.metadata = metadata or {}
 
+_ONLINE_GEOCODE_CACHE = {}
+
+def _online_geocode(query: str):
+    """Bounded online fallback using Nominatim."""
+    if not query or len(query) < 3:
+        return None, None, None
+        
+    cache_key = query.lower().strip()
+    if cache_key in _ONLINE_GEOCODE_CACHE:
+        return _ONLINE_GEOCODE_CACHE[cache_key]
+
+    try:
+        resp = requests.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"q": query, "format": "json", "limit": 1},
+            headers={"User-Agent": "ORCA-Marine-Agent/1.0"},
+            timeout=3
+        )
+        if resp.status_code == 200 and resp.json():
+            data = resp.json()[0]
+            res = (float(data["lat"]), float(data["lon"]), data.get("display_name", query).split(",")[0].strip())
+            _ONLINE_GEOCODE_CACHE[cache_key] = res
+            return res
+    except Exception:
+        pass
+    
+    _ONLINE_GEOCODE_CACHE[cache_key] = (None, None, None)
+    return None, None, None
 
 class LocationResolver:
     """
@@ -239,6 +268,33 @@ class LocationResolver:
                 source="METADATA",
                 resolution_status=status,
                 matched_text=match_key
+            )
+
+        # 4. Online Geocoding Fallback
+        lat, lon, name = _online_geocode(clean_text)
+        if lat is not None and lon is not None:
+            # Validate marine relevance
+            from agents.geospatial.coastline import distance_to_coast
+            dist = distance_to_coast(lat, lon)
+            is_coastal = dist is not None and dist < 25.0
+            
+            loc_type = "coastal" if is_coastal else "inland"
+            geo_loc = GeoLocation(latitude=lat, longitude=lon, name=name)
+            return LocationResolution(
+                geo_location=geo_loc,
+                location_type=loc_type,
+                inland_name=name if not is_coastal else None,
+                candidate_names=[name],
+                coastal_access=is_coastal,
+                canonical_name=name,
+                latitude=lat,
+                longitude=lon,
+                location_class="coastal_point" if is_coastal else "inland_region",
+                marine_access="direct" if is_coastal else "none",
+                confidence=0.9,
+                source="NOMINATIM",
+                resolution_status="EXACT" if is_coastal else "ONLINE_RESOLVED",
+                matched_text=clean_text
             )
 
         return LocationResolution(
