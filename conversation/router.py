@@ -596,22 +596,31 @@ def llm_route_stateful(
       from schemas.extraction import Intent, Action, LocationRole, ActionType, LocationItem
       
       # Use the resolved location or fallback to session state
-      loc_text = None
-      if getattr(loc_res_query, "geo_location", None):
-          loc_text = loc_res_query.geo_location.name
-      elif state.target_location_text:
-          loc_text = state.target_location_text
-      elif state.reference_location_text:
-          loc_text = state.reference_location_text
+      locs_to_add = []
+      if getattr(fast_route, "endpoints", None):
+          locs_to_add = [
+              LocationItem(text=fast_route.endpoints[0], role=LocationRole.REFERENCE),
+              LocationItem(text=fast_route.endpoints[1], role=LocationRole.TARGET)
+          ]
+      else:
+          loc_text = None
+          if getattr(loc_res_query, "geo_location", None):
+              loc_text = loc_res_query.geo_location.name
+          elif state.target_location_text:
+              loc_text = state.target_location_text
+          elif state.reference_location_text:
+              loc_text = state.reference_location_text
+          if loc_text:
+              locs_to_add.append(LocationItem(text=loc_text, role=LocationRole.TARGET))
           
       # Let the inland fast path trigger if the location is inland
-      if getattr(loc_res_query, "location_type", "unknown") != "inland" or loc_text is None:
+      if getattr(loc_res_query, "location_type", "unknown") != "inland" or not locs_to_add:
           # Build fast plan
           fast_result = ExtractionResult(
               action=Action.ORCA_QUERY,
               action_type=ActionType.ASSESS,
               intent=Intent(fast_route.intent) if hasattr(Intent, fast_route.intent) else Intent.marine_safety,
-              locations=[LocationItem(text=loc_text, role=LocationRole.TARGET)] if loc_text else [],
+              locations=locs_to_add,
               activity="fishing",
               time_relative="today",
           ).ensure_non_null()
@@ -838,30 +847,29 @@ def _plan_from_state(raw_query: str, state: ConversationState, extract_location_
     seen_locs.add(fallback_location)
     loc_source = "structured_request"
 
-  if not locations_list:
-    if state.target_location_text and state.target_location_text not in seen_locs:
-      locations_list.append(LocationItem(text=state.target_location_text, role=LocationRole.TARGET))
-      seen_locs.add(state.target_location_text)
-    elif state.location_text and state.location_text not in seen_locs:
-      locations_list.append(LocationItem(text=state.location_text, role=LocationRole(state.location_role) if state.location_role else LocationRole.TARGET))
-      seen_locs.add(state.location_text)
+  if state.target_location_text and state.target_location_text not in seen_locs:
+    locations_list.append(LocationItem(text=state.target_location_text, role=LocationRole.TARGET))
+    seen_locs.add(state.target_location_text)
+  elif state.location_text and state.location_text not in seen_locs:
+    locations_list.append(LocationItem(text=state.location_text, role=LocationRole(state.location_role) if state.location_role else LocationRole.TARGET))
+    seen_locs.add(state.location_text)
 
-    if state.reference_location_text and state.reference_location_text not in seen_locs:
-      locations_list.append(LocationItem(text=state.reference_location_text, role=LocationRole.REFERENCE))
-      seen_locs.add(state.reference_location_text)
+  if state.reference_location_text and state.reference_location_text not in seen_locs:
+    locations_list.append(LocationItem(text=state.reference_location_text, role=LocationRole.REFERENCE))
+    seen_locs.add(state.reference_location_text)
 
-    for r in state.region_locations:
-      if r not in seen_locs:
-        locations_list.append(LocationItem(text=r, role=LocationRole.REGION))
-        seen_locs.add(r)
+  for r in state.region_locations:
+    if r not in seen_locs:
+      locations_list.append(LocationItem(text=r, role=LocationRole.REGION))
+      seen_locs.add(r)
 
-    for c in state.comparison_location_texts:
-      if c not in seen_locs:
-        locations_list.append(LocationItem(text=c, role=LocationRole.COMPARISON))
-        seen_locs.add(c)
-        
-    if locations_list:
-        loc_source = "conversation"
+  for c in state.comparison_location_texts:
+    if c not in seen_locs:
+      locations_list.append(LocationItem(text=c, role=LocationRole.COMPARISON))
+      seen_locs.add(c)
+      
+  if not loc_source and locations_list:
+      loc_source = "conversation"
 
   mock_extraction = ExtractionResult(
     language=Language(state.language) if state.language else Language.en,

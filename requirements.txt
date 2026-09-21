@@ -205,3 +205,4 @@ xlrd==2.0.2
 yarl==1.24.5
 html5lib
 zarr==3.3.0
+tenacity
