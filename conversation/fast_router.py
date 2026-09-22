@@ -118,12 +118,16 @@ def detect_specialized_capability(query_text: str, language: str) -> FastRouteRe
             else:
                 score = 0.5 # Below threshold
         elif intent == "nearest_pfz":
+            avoidance_signals = ["avoid", "stay away", "restricted", "hazardous", "dangerous", "do not go", "should not", "no-go", "prohibited", "banned area"]
+            if any(signal in query_lower for signal in avoidance_signals):
+                return FastRouteResult(matched=False, intent=None, confidence=0.0)
+
             # Require multiple distinct signals for fishing zones
             fish_signals = ["machh", "mach", "machli", "मछली", "মাছ", "fish"]
             zone_signals = ["zone", "spot", "jayga", "jagah", "जगह", "bhalo", "achha"]
             
-            has_fish = any(word in query_lower for word in fish_signals)
-            has_zone = any(word in query_lower for word in zone_signals)
+            has_fish = any(re.search(r'\b' + re.escape(word) + r'\b', query_lower) for word in fish_signals)
+            has_zone = any(re.search(r'\b' + re.escape(word) + r'\b', query_lower) for word in zone_signals)
             
             if has_fish and has_zone:
                 score = 0.95

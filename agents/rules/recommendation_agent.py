@@ -126,7 +126,7 @@ class RecommendationAgent(BaseAgent):
                     candidate_evals.append(c_eval)
 
         if candidate_evals:
-            ranked_candidates = self._generate_ranked_candidates(
+            ranked_candidates, rejected_candidates = self._generate_ranked_candidates(
                 lat, lon, candidate_evals, pfz_data, target_loc, ocean_data, timestamp=datetime.now(timezone.utc)
             )
 
@@ -360,6 +360,21 @@ class RecommendationAgent(BaseAgent):
                 )
                 why_dict["primary_reason"] = "Elevated weather/wave risk and moderate fish aggregation require operational caution."
             confidence = 0.85
+        elif plan.intent == "hazardous_zone_filter" or plan.operation == "SAFE_ALTERNATIVE_ZONE":
+            action_code = "SAFE_ALTERNATIVE_ZONE"
+            if rejected_candidates:
+                action_title = "HAZARDOUS ZONES IDENTIFIED"
+                recommendation_text = (
+                    f"Found {len(rejected_candidates)} hazardous or restricted zones in the evaluated area. "
+                    "These areas must be avoided to ensure maritime safety."
+                )
+                why_dict["primary_reason"] = "Candidate evaluation identified unsafe or restricted maritime zones."
+                confidence = 0.95
+            else:
+                action_title = "NO HAZARDOUS ZONES IDENTIFIED"
+                recommendation_text = "No specific hazardous or restricted maritime zones were identified in the evaluated area based on available data."
+                why_dict["primary_reason"] = "Candidate zone evaluation yielded no hazardous/restricted areas."
+                confidence = 0.95
         else:
             if pfz_qualified:
                 action_code = "OPTIMAL_FISHING_VOYAGE"
@@ -576,7 +591,7 @@ class RecommendationAgent(BaseAgent):
                     w_candidate_evals.append(c_eval)
 
             if w_candidate_evals:
-                ranked_candidates = self._generate_ranked_candidates(
+                ranked_candidates, _ = self._generate_ranked_candidates(
                     winner["location"].latitude, winner["location"].longitude,
                     w_candidate_evals, w_pfz_data, winner["location"],
                     w_ocean_data, timestamp=datetime.now(timezone.utc)
@@ -618,7 +633,7 @@ class RecommendationAgent(BaseAgent):
             )
         )
 
-    def _generate_ranked_candidates(self, lat: float, lon: float, candidate_evals: list, pfz_data: dict, target_loc, ocean_data: dict, timestamp) -> list:
+    def _generate_ranked_candidates(self, lat: float, lon: float, candidate_evals: list, pfz_data: dict, target_loc, ocean_data: dict, timestamp) -> tuple[list, list]:
         ranked_candidates, rejected_candidates = rank_fishing_candidates(lat, lon, candidate_evals, top_k=3)
         formatted_candidates = []
         if ranked_candidates:
@@ -685,7 +700,7 @@ class RecommendationAgent(BaseAgent):
                     rank=spot.get("rank")
                 )
                 formatted_candidates.append(formatted_cand.model_dump())
-        return formatted_candidates
+        return formatted_candidates, rejected_candidates
 
     def _fallback_comparison(self) -> AgentResult:
         return AgentResult(
